@@ -9,6 +9,11 @@ The Aizona trading framework provides a structured way to develop trading strate
 class MyStrategy(BaseStrategy):
     def __init__(self, pair_list, params):
         super().__init__(pair_list, params)
+
+    def make_step_controls(self, pair):
+        # Implement your strategy logic here
+        pass
+
 ```
 
 
