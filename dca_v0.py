@@ -1,11 +1,31 @@
+#%%
+from datetime import datetime
 from base_strategy import BaseStrategy
 
-
-class strategy(BaseStrategy):
+class Strategy(BaseStrategy):
+    """DCA (Dollar Cost Average) Strategy Implementation"""
+    
     strategy_name = "dca_v0"
+    configs = {
+        # Strategy parameters
+        "params": {
+            "side": "LONG",
+            "order_amount": 1000,
+            "take_profit": 0.2,
+            "price_deviation_to_safety_order": 0.1
+        },
+        
+        # Backtest configuration
+        "backtest_config": {
+            "pair_list": ["BTC"],
+            "start_date": datetime(2024, 6, 1),
+            "end_date": datetime(2024, 6, 5)
+        }
+    }
 
-    def __init__(self, pair_list, params, data_dir_name=None):
-        super().__init__(pair_list, params, self.strategy_name, data_dir_name)
+    def __init__(self, pair_list, params):
+        super().__init__(pair_list, params)
+        print("printing from dca_v0 init:")
 
     def control_buy_limit_order(self, pair):
         step = self.get_current_step()
@@ -86,17 +106,18 @@ class strategy(BaseStrategy):
         self.cancel_control_buy_limit_order(pair)
         self.cancel_control_sell_limit_order(pair)
 
-
 if __name__ == "__main__":
-    params = {
-        "side": "LONG",
-        "order_amount": 1000,
-        "take_profit": 0.2,
-        "price_deviation_to_safety_order": 0.1}
+    from runing_tools import run_strategy_on_server
 
-    self = strategy(
-        pair_list=["BTC"],
-        params=params,
-        data_dir_name='tardis_data_test/'
+    username = "oguzhan2"
+    api_key = "Oguzhan_2"
+    strategy_file_name = "dca_v0.py"
+
+
+    run_strategy_on_server(
+        username=username,
+        password=api_key,
+        strategy_file_path=strategy_file_name
     )
-    self.run_strategyy()
+
+

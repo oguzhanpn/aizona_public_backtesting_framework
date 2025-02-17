@@ -1,30 +1,19 @@
 from abc import ABC, abstractmethod
-import os
-if 'strategies' in os.getcwd():
-    os.chdir(os.path.dirname(os.getcwd()))
-from aizona_backtest_v2.Objects.backtest_sim import backtest_object
-from aizona_strategies.configs import printer, backtest_result_channels
-from aizona_strategies.multi_time_backtest import make_multi_time_backtest
+import requests
 
 
 class BaseStrategy(ABC):
-    printer = printer
     """
     Abstract base class for all trading strategies.
     All strategy implementations must inherit from this class and implement its abstract methods.
     """
-    def __init__(self, pair_list, params, strategy_name, data_dir_name):
+    def __init__(self, pair_list, params):
         self.pair_list = pair_list
         self.params = params
-        self.backtest = backtest_object(
-            pair_list,
-            strategy_params=params,
-            strategy_name=strategy_name,
-            dir_name=data_dir_name,
-            external_trades_db=None
-        )
-        self.sim_size = self.backtest.get_simulation_size()
-    
+        self.backtest = None
+        self.sim_size = None
+        self.results_channel = None
+
     @abstractmethod
     def make_step_controls(self, pair):
         """
@@ -70,10 +59,10 @@ class BaseStrategy(ABC):
 
             self.backtest.create_limit_order(new_order_dict)
 
-    def _send_backtest_report(self, dc_link=backtest_result_channels[0]):
-        self.backtest.create_backtest_report(dc_link)
+    def _send_backtest_report(self):
+        self.backtest.create_backtest_report(self.results_channel)
         # self.backtest.metric_object.get_cumulative_pnl_plot()
-        self.backtest.metric_object.send_cumulative_pnl_plot(dc_url=dc_link)
+        self.backtest.metric_object.send_cumulative_pnl_plot(dc_url=self.results_channel)
 
     def run_strategyy(self):
         while self.backtest.run:
@@ -139,4 +128,7 @@ class BaseStrategy(ABC):
 
     def cancel_open_orders(self, pair):
         self.backtest.order_manager.cancel_open_orders(pair)
+
+    def printer_method(self, message: str):
+        requests.post(self.results_channel, {"content": message})
 
