@@ -1,6 +1,7 @@
 import paramiko
 
-def run_strategy_on_server(username, password, script_path):
+
+def run_strategy_on_server(username, password, script_path, file_name):
 
     hostname = "213.142.148.171"
 
@@ -11,7 +12,7 @@ def run_strategy_on_server(username, password, script_path):
         sftp = ssh.open_sftp()
 
         local_file = script_path
-        remote_path = script_path
+        remote_path = file_name
         sftp.put(local_file, remote_path)
 
         print(f"File uploaded successfully to remote server you can proceed to discord channel for the remaining logs")
@@ -23,24 +24,4 @@ def run_strategy_on_server(username, password, script_path):
         import traceback
         print(traceback.format_exc())
         print(f"Error: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
