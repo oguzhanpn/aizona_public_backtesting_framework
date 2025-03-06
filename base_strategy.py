@@ -12,7 +12,7 @@ class BaseStrategy(ABC):
     def __init__(self, pair_list, params):
         self.log_name = 'strategy_logger'
         Path("logs").mkdir(parents=True, exist_ok=True)
-        self.log_file = 'logs/' + datetime.now().strftime('%Y-%m-%d %H-%M-%S') + '_' + self.log_name + '.log'
+        self.log_file = 'logs/strategy_logs/' + datetime.now().strftime('%Y-%m-%d %H-%M-%S') + '_' + self.log_name + '.log'
         self._setup_logger(self.log_name)
         self.logger = logging.getLogger(self.log_name)
         self.pair_list = pair_list
@@ -41,6 +41,7 @@ class BaseStrategy(ABC):
         handler = logging.FileHandler(self.log_file)
         handler.setLevel(logging.INFO)
         handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(logging.INFO)
