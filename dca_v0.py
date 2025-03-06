@@ -18,14 +18,14 @@ class Strategy(BaseStrategy):
         # Backtest configuration
         "backtest_config": {
             "pair_list": ["BTC"],
-            "start_date": datetime(2024, 6, 1),
-            "end_date": datetime(2024, 6, 5)
+            "start_date": datetime(2025, 2, 1),
+            "end_date": datetime(2025, 2, 5)
         }
     }
 
     def __init__(self, pair_list, params):
         super().__init__(pair_list, params)
-        print("printing from dca_v0 init:")
+        self.logger.info("DCA v0 strategy initialized")
 
     def control_buy_limit_order(self, pair):
         step = self.get_current_step()

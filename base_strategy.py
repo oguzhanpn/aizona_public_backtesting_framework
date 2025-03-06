@@ -1,13 +1,20 @@
 from abc import ABC, abstractmethod
 import requests
-
-
+import logging
+from datetime import datetime
+from pathlib import Path
+import sys
 class BaseStrategy(ABC):
     """
     Abstract base class for all trading strategies.
     All strategy implementations must inherit from this class and implement its abstract methods.
     """
     def __init__(self, pair_list, params):
+        self.log_name = 'strategy_logger'
+        Path("logs").mkdir(parents=True, exist_ok=True)
+        self.log_file = 'logs/' + datetime.now().strftime('%Y-%m-%d %H-%M-%S') + '_' + self.log_name + '.log'
+        self._setup_logger(self.log_name)
+        self.logger = logging.getLogger(self.log_name)
         self.pair_list = pair_list
         self.params = params
         self.backtest = None
@@ -24,6 +31,21 @@ class BaseStrategy(ABC):
     
     def strategy_manager_pair(self, pair):
         self.make_step_controls(pair)
+
+    def _setup_logger(self, name):
+        """Set up a logger with the given name, logging to a file and console."""
+        # Create formatter
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+        logger = logging.getLogger(name)
+        logger.setLevel(logging.INFO)
+        handler = logging.FileHandler(self.log_file)
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(formatter)
+
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     def _close_pair_positions(self, pairs, comment='close_pos'):
         for pair in pairs:
@@ -131,4 +153,5 @@ class BaseStrategy(ABC):
 
     def printer_method(self, message: str):
         requests.post(self.results_channel, {"content": message})
+
 
