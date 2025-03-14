@@ -3,11 +3,14 @@ from datetime import datetime
 from base_strategy import BaseStrategy
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+from base_ml_model import BaseModel
 
-class Model():
+class Model(BaseModel):
     """Model for the strategy"""
     def __init__(self):
+        super().__init__()
         self.model = None
+        self.feature_names = []
 
     def train(self, train_data):
         """Train the model using historical data
