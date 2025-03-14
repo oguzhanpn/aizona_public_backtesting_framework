@@ -20,6 +20,7 @@ class BaseStrategy(ABC):
         self.backtest = None
         self.sim_size = None
         self.results_channel = None
+        self.next_progress_log_percentage = 0.1
 
     @abstractmethod
     def make_step_controls(self, pair):
@@ -84,14 +85,21 @@ class BaseStrategy(ABC):
 
     def _send_backtest_report(self):
         self.backtest.create_backtest_report(self.results_channel)
-        # self.backtest.metric_object.get_cumulative_pnl_plot()
         self.backtest.metric_object.send_cumulative_pnl_plot(dc_url=self.results_channel)
+
+    def _send_progress_log_if_necessary(self):
+        completion_ratio = self.backtest.current_step / self.backtest.max_steps
+        if completion_ratio > self.next_progress_log_percentage:
+            print('completion_ratio:', completion_ratio)
+            self.printer_method(f"Backtest is {int(completion_ratio * 100)}% complete")
+            self.next_progress_log_percentage += 0.1
 
     def run_strategyy(self):
         while self.backtest.run:
             pair = self.backtest.get_data("pair", self.backtest.current_step)
             self.strategy_manager_pair(pair)
             self.backtest.pass_steps()
+            self._send_progress_log_if_necessary()
 
         if self.backtest.reset_at_end:
             for pair in self.pair_list:
@@ -127,7 +135,10 @@ class BaseStrategy(ABC):
 
     def get_data(self, data_type, step):
         return self.backtest.price_data.get_data(data_type, step)
-    
+
+    def get_historical_data(self, data_type, step, lookback_in_seconds, pair):
+        return self.backtest.price_data.get_historical_data(data_type, step, lookback_in_seconds, pair)
+
     def get_last_trade_buy_price(self):
         return self.backtest.trade_history.last_trade_buy.price
     
@@ -153,6 +164,8 @@ class BaseStrategy(ABC):
         self.backtest.order_manager.cancel_open_orders(pair)
 
     def printer_method(self, message: str):
-        requests.post(self.results_channel, {"content": message})
-
+        requests.post(
+            url=self.results_channel,
+            json={"content": message}
+        )
 
