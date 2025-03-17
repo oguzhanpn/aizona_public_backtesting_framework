@@ -136,8 +136,14 @@ class BaseStrategy(ABC):
     def get_data(self, data_type, step):
         return self.backtest.price_data.get_data(data_type, step)
 
-    def get_historical_data(self, data_type, step, lookback_in_seconds, pair):
-        return self.backtest.price_data.get_historical_data(data_type, step, lookback_in_seconds, pair)
+    def get_historical_data(self, step, lookback_in_seconds, pair):
+        return self.backtest.price_data.get_historical_data(step, lookback_in_seconds, pair)
+    
+    def get_prediction(self, step, model_name):
+        return self.backtest.get_prediction(step, model_name)
+    
+    def make_future_predictions(self, model_name, model_object):
+        self.backtest.make_future_predictions(model_name, model_object)
 
     def get_last_trade_buy_price(self):
         return self.backtest.trade_history.last_trade_buy.price

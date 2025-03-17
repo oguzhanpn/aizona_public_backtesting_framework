@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-
+import pandas as pd
 class BaseModel(ABC):
     def __init__(self):
         self.model = None
@@ -21,3 +21,10 @@ class BaseModel(ABC):
         raise NotImplementedError("prepare_features method must be implemented") 
         
 
+    def predict(self, data: pd.DataFrame):
+        """Predict the next step"""
+        # Prepare features
+        features = self.prepare_features(data)
+        
+        predictions = self.model.predict(features.values)
+        return predictions

@@ -4,6 +4,7 @@ from base_strategy import BaseStrategy
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from base_ml_model import BaseModel
+import pandas as pd
 
 class Model(BaseModel):
     """Model for the strategy"""
@@ -11,185 +12,138 @@ class Model(BaseModel):
         super().__init__()
         self.model = None
         self.feature_names = []
-
-    def train(self, train_data):
+        
+    def train(self, train_df):
         """Train the model using historical data
         
         Args:
-            train_data: List of tuples (timestamp, price)
-        """
+            train_df: DataFrame with columns ['timestamp', 'price']
+        """        
         # Need at least 180 data points for all features
-        if len(train_data) < 180:
+        if len(train_df) < 180:
             raise ValueError("Need at least 180 data points for training")
         
-        # Prepare features and labels for each data point
-        features_list = []
-        labels = []
+        # Calculate features for the entire DataFrame
+        features_df = self.prepare_features(train_df)
         
-        # Start from index 180 to have enough lookback data
-        for i in range(180, len(train_data)):
-            # Get historical data window for feature calculation
-            historical_window = train_data[i-180:i+1]
-            
-            # Calculate features for this window
-            features = self.prepare_features(historical_window)
-            
-            # Calculate label (price movement direction)
-            # 1 for price increase, 0 for price decrease
-            if i < len(train_data) - 1:  # Ensure we have next price for label
-                current_price = train_data[i][1]
-                next_price = train_data[i+1][1]
-                label = 1 if next_price > current_price else 0
-                
-                # Only add to training data if we have all features
-                if len(features) > 0:
-                    features_list.append(list(features.values()))
-                    labels.append(label)
+        # Calculate labels (price movement direction)
+        # 1 for price increase, 0 for price decrease
+        labels = (train_df['price'].shift(-1) > train_df['price']).astype(int)
         
-        # Convert to numpy arrays for training
-        X = np.array(features_list)
-        y = np.array(labels)
+        # Remove the last row since it won't have a label
+        features_df = features_df[:-1]
+        labels = labels[:-1]
         
-        # Train the model (example using RandomForestClassifier)
+        # Drop any rows with missing values
+        valid_rows = features_df.notna().all(axis=1)
+        X = features_df[valid_rows]
+        y = labels[valid_rows]
+        
+        # Train the model
         self.model = RandomForestClassifier(n_estimators=100, random_state=42)
         self.model.fit(X, y)
         
-        # Store feature names for future predictions
-        self.feature_names = list(features.keys())
-
-    def predict(self, data):
-        """Predict the next step"""
-        # Prepare features
-        features = self.prepare_features(data)
-
-        # Predict the next step
-        features_array = np.array(list(features.values())).reshape(1, -1)
-        if len(features) != len(self.feature_names):
-            print('there are missing features. \n Expected: ', self.feature_names, '\n Got: ', features)
-            return None
-        
-        _pred = self.model.predict(features_array)
-        return _pred[0]
+        # Store feature names
+        self.feature_names = features_df.columns.tolist()
     
-    def _calculate_basic_features(self, prices):
+    def _calculate_basic_features(self, df):
         """Calculate basic price-based features"""
-        features = {}
-        
-        # Moving averages
         window_short = 69
         window_long = 180
-        features['sma_short'] = sum(prices[-window_short:]) / window_short
-        features['sma_long'] = sum(prices[-window_long:]) / window_long
         
-        # Price momentum
-        features['price_change'] = prices[-1] - prices[-2]
-        features['price_change_pct'] = (prices[-1] - prices[-2]) / prices[-2]
+        features = pd.DataFrame(index=df.index)
+        features['sma_short'] = df['price'].rolling(window=window_short).mean()
+        features['sma_long'] = df['price'].rolling(window=window_long).mean()
+        features['price_change'] = df['price'].diff()
+        features['price_change_pct'] = df['price'].pct_change()
         
         return features
 
-    def _calculate_volatility_features(self, prices, window=180):
+    def _calculate_volatility_features(self, df, window=180):
         """Calculate volatility-based features"""
-        features = {}
+        features = pd.DataFrame(index=df.index)
         
-        if len(prices) >= window:
-            mean_price = sum(prices[-window:]) / window
-            features['volatility'] = (
-                sum((p - mean_price) ** 2 for p in prices[-window:]) 
-                / window
-            ) ** 0.5
-            
-            # Add Bollinger Bands
-            std_dev = features['volatility']
-            features['bollinger_upper'] = mean_price + (2 * std_dev)
-            features['bollinger_lower'] = mean_price - (2 * std_dev)
-            features['bollinger_bandwidth'] = (features['bollinger_upper'] - features['bollinger_lower']) / mean_price
+        # Calculate rolling statistics
+        rolling_mean = df['price'].rolling(window=window).mean()
+        rolling_std = df['price'].rolling(window=window).std()
+        
+        features['volatility'] = rolling_std
+        features['bollinger_upper'] = rolling_mean + (2 * rolling_std)
+        features['bollinger_lower'] = rolling_mean - (2 * rolling_std)
+        features['bollinger_bandwidth'] = (features['bollinger_upper'] - features['bollinger_lower']) / rolling_mean
         
         return features
 
-    def _calculate_momentum_features(self, prices):
+    def _calculate_momentum_features(self, df):
         """Calculate momentum-based features"""
-        features = {}
+        features = pd.DataFrame(index=df.index)
         
-        if len(prices) >= 180:
-            # RSI calculation
-            changes = [prices[i] - prices[i-1] for i in range(1, len(prices))]
-            gains = [c if c > 0 else 0 for c in changes]
-            losses = [-c if c < 0 else 0 for c in changes]
-            avg_gain = sum(gains[-180:]) / 180
-            avg_loss = sum(losses[-180:]) / 180
-            rs = avg_gain / avg_loss if avg_loss != 0 else 0
-            features['rsi'] = 100 - (100 / (1 + rs))
-            
-            # MACD
-            if len(prices) >= 180:
-                ema_12 = sum(prices[-90:]) / 90  # Simplified EMA
-                ema_26 = sum(prices[-180:]) / 180
-                features['macd'] = ema_12 - ema_26
-                
-            # Rate of Change (ROC)
-            if len(prices) >= 180:
-                features['roc'] = ((prices[-1] - prices[-180]) / prices[-180]) * 100
+        # RSI calculation
+        delta = df['price'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=180).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=180).mean()
+        rs = gain / loss
+        features['rsi'] = 100 - (100 / (1 + rs))
+        
+        # MACD
+        ema_12 = df['price'].rolling(window=90).mean()  # Simplified EMA
+        ema_26 = df['price'].rolling(window=180).mean()
+        features['macd'] = ema_12 - ema_26
+        
+        # Rate of Change (ROC)
+        features['roc'] = df['price'].pct_change(periods=180) * 100
         
         return features
 
-    def _calculate_trend_features(self, prices):
+    def _calculate_trend_features(self, df):
         """Calculate trend-based features"""
-        features = {}
+        features = pd.DataFrame(index=df.index)
         
-        if len(prices) >= 180:
-            # Average Directional Index (ADX) - Simplified version
-            highs = prices[:-1]  # Using close prices as proxy for highs
-            lows = prices[:-1]   # Using close prices as proxy for lows
-            
-            # True Range (TR)
-            tr = max(max(highs) - min(lows), abs(max(highs) - prices[-1]), abs(min(lows) - prices[-1]))
-            features['tr'] = tr
-            
-            # Price position relative to recent range
-            highest_high = max(prices[-180:])
-            lowest_low = min(prices[-180:])
-            features['price_position'] = (prices[-1] - lowest_low) / (highest_high - lowest_low)
+        # Rolling max and min
+        rolling_high = df['price'].rolling(window=180).max()
+        rolling_low = df['price'].rolling(window=180).min()
+        
+        # True Range (simplified)
+        features['tr'] = rolling_high - rolling_low
+        
+        # Price position
+        features['price_position'] = (df['price'] - rolling_low) / (rolling_high - rolling_low)
         
         return features
 
-    def _calculate_time_features(self, data):
+    def _calculate_time_features(self, df):
         """Calculate time-based features"""
-        features = {}
-        # Extract timestamp from the first element of each tuple
-        timestamp = datetime.fromtimestamp(data[-1][0]/1000)
+        features = pd.DataFrame(index=df.index)
         
-        features['hour'] = timestamp.hour / 24.0  # Normalize to [0,1]
-        features['day_of_week'] = timestamp.weekday() / 6.0  # Normalize to [0,1]
-        features['day_of_month'] = timestamp.day / 31.0  # Normalize to [0,1]
+        # Convert timestamp to datetime
+        timestamps = pd.to_datetime(df['timestamp'], unit='ms')
+        
+        features['hour'] = timestamps.dt.hour / 24.0
+        features['day_of_week'] = timestamps.dt.dayofweek / 6.0
+        features['day_of_month'] = timestamps.dt.day / 31.0
         
         return features
 
-    def prepare_features(self, data):
-        """Prepare features for the model
+    def prepare_features(self, data_df):
+        """Prepare features for the model using DataFrame operations
         
         Args:
-            data: List of tuples (timestamp, price)
+            data_df: DataFrame with columns ['timestamp', 'price']
             
         Returns:
-            Dictionary of features
+            DataFrame with calculated features
         """
-        prices = [price_data[1] for price_data in data]
-        
-        # Initialize features dictionary
-        features = {}
-        
-        # Collect features from all calculation methods
+        # Calculate all feature sets
         feature_sets = [
-            self._calculate_basic_features(prices),
-            self._calculate_volatility_features(prices),
-            self._calculate_momentum_features(prices),
-            self._calculate_trend_features(prices),
-            self._calculate_time_features(data)
+            self._calculate_basic_features(data_df),
+            self._calculate_volatility_features(data_df),
+            self._calculate_momentum_features(data_df),
+            self._calculate_trend_features(data_df),
+            self._calculate_time_features(data_df)
         ]
         
-        # Combine all feature dictionaries
-        for feature_set in feature_sets:
-            features.update(feature_set)
+        # Combine all feature DataFrames
+        features = pd.concat(feature_sets, axis=1)
         
         return features
 
@@ -212,7 +166,8 @@ class Strategy(BaseStrategy):
             "start_date": datetime(2025, 2, 1),
             "end_date": datetime(2025, 2, 5),
             'resample_freq_in_ms': 1000,
-            'use_ob_levels': 1
+            'use_ob_levels': 1,
+            'make_ml_predictions': True
         }
     }
 
@@ -227,14 +182,8 @@ class Strategy(BaseStrategy):
         
         if self.check_if_need_to_train():
             self.train_model()
-        
-        data = self.get_historical_data(
-            data_type = 'ask_0_price',
-            step = self.get_current_step(),
-            lookback_in_seconds=self.params['lookback_window']+30, # Get 30 seconds more data for potential missing data points
-            pair = pair
-            )
-        prediction = self.model_object.predict(data)
+
+        prediction = self.get_prediction(self.get_current_step(), 'example_ml_model')
         if prediction is None:
             #self.printer_method(f'Prediction is None. Skipping step: {self.get_current_step()}')
             return
@@ -282,7 +231,6 @@ class Strategy(BaseStrategy):
     def train_model(self):
         """Train the model"""
         historical_data = self.get_historical_data(
-            data_type = 'ask_0_price',
             step = self.get_current_step(),
             lookback_in_seconds=self.params['train_window'],
             pair = self.pair_list[0]
@@ -290,7 +238,8 @@ class Strategy(BaseStrategy):
         self.model_object.train(historical_data)
         self.printer_method(f"Model trained with {len(historical_data)} data points")
 
-    
+        self.make_future_predictions('example_ml_model', self.model_object)
+
     def check_if_need_to_pass(self):
         """Check if the strategy needs to pass"""
         return self.get_current_step() < self.params['train_window']
