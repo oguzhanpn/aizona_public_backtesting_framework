@@ -31,20 +31,20 @@ class Model(BaseModel):
         labels = (train_df['price'].shift(-1) > train_df['price']).astype(int)
         
         # Remove the last row since it won't have a label
-        features_df = features_df[:-1]
-        labels = labels[:-1]
+        features_df = features_df.iloc[:-1]
+        labels = labels.iloc[:-1]
         
         # Drop any rows with missing values
         valid_rows = features_df.notna().all(axis=1)
         X = features_df[valid_rows]
         y = labels[valid_rows]
-        
         # Train the model
         self.model = RandomForestClassifier(n_estimators=100, random_state=42)
         self.model.fit(X, y)
         
         # Store feature names
         self.feature_names = features_df.columns.tolist()
+
     
     def _calculate_basic_features(self, df):
         """Calculate basic price-based features"""
@@ -128,11 +128,14 @@ class Model(BaseModel):
         """Prepare features for the model using DataFrame operations
         
         Args:
-            data_df: DataFrame with columns ['timestamp', 'price']
+            data_df: DataFrame with columns ['timestamp', 'ask_0_price', 'bid_0_price']
             
         Returns:
             DataFrame with calculated features
         """
+
+        data_df['price'] = (data_df['ask_0_price'] + data_df['bid_0_price']) / 2
+
         # Calculate all feature sets
         feature_sets = [
             self._calculate_basic_features(data_df),

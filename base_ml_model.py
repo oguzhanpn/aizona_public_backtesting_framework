@@ -21,10 +21,11 @@ class BaseModel(ABC):
         raise NotImplementedError("prepare_features method must be implemented") 
         
 
-    def predict(self, data: pd.DataFrame):
-        """Predict the next step"""
-        # Prepare features
-        features = self.prepare_features(data)
-        
-        predictions = self.model.predict(features.values)
-        return predictions
+    def predict(self, data: pd.DataFrame):    
+        """Predict the next step"""    
+        # Prepare features    
+        features = self.prepare_features(data)    
+        features = features.dropna()    
+        predictions = self.model.predict(features)    
+        predictions = pd.DataFrame(index=features.index, data=predictions)    
+        return predictions.to_dict()[0]
