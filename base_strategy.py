@@ -142,8 +142,8 @@ class BaseStrategy(ABC):
     def get_prediction(self, step, model_name):
         return self.backtest.get_prediction(step, model_name)
     
-    def make_future_predictions(self, model_name, model_object):
-        self.backtest.make_future_predictions(model_name, model_object)
+    def make_future_predictions(self, model_name, model_object, pair=None):
+        self.backtest.make_future_predictions(model_name, model_object, pair)
 
     def get_last_trade_buy_price(self):
         return self.backtest.trade_history.last_trade_buy.price
