@@ -110,7 +110,7 @@ class BaseStrategy(ABC):
             self._close_pair_positions(self.pair_list)
             self.backtest.trade_history.expectancy()
 
-        self._send_backtest_report()
+            self._send_backtest_report()
 
     def get_current_step(self):
         return self.backtest.current_step
