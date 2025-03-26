@@ -150,6 +150,28 @@ class Model(BaseModel):
         
         return features
 
+    def get_performance_metrics(self, data_df):
+        """Get performance metrics for the model"""
+        predictions = pd.Series(self.predict(data_df), index=data_df.index)
+        actual = (data_df['price'].shift(-1) > data_df['price']).astype(int)
+        results = pd.DataFrame({'predictions': predictions, 'actual': actual}).dropna()
+        
+        # Calculate metrics using proper boolean operations
+        accuracy = np.mean(results['predictions'] == results['actual'])
+        true_positives = np.sum((results['predictions'] == 1) & (results['actual'] == 1))
+        predicted_positives = np.sum(results['predictions'] == 1)
+        actual_positives = np.sum(results['actual'] == 1)
+        
+        precision = true_positives / predicted_positives if predicted_positives > 0 else 0
+        recall = true_positives / actual_positives if actual_positives > 0 else 0
+        f1_score = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+        
+        return {    
+            'accuracy': accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1_score': f1_score
+        }
 
 class Strategy(BaseStrategy):
     """Example ML model strategy Implementation"""
@@ -194,6 +216,17 @@ class Strategy(BaseStrategy):
         target_position_value = self.get_target_position_value(prediction)
         self.cancel_open_orders(pair)
         self.send_new_orders(pair, target_position_value)
+
+        if self.get_current_step() % 100000 == 0:
+            historical_data = self.get_historical_data(
+                step = self.get_current_step(),
+                lookback_in_seconds=self.params['train_window'],
+                pair = self.pair_list[0]
+            )
+            performance_metrics = self.model_object.get_performance_metrics(historical_data)
+            current_ts_in_ms = self.get_data('timestamp', self.get_current_step())
+            current_datetime = datetime.fromtimestamp(current_ts_in_ms / 1000)
+            self.printer_method(f'{current_datetime} last 24 hour model performance metrics:\n {performance_metrics}')
 
     def send_new_orders(self, pair, target_position_value):
         """Execute trades for the strategy"""
