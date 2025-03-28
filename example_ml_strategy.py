@@ -288,8 +288,8 @@ class Strategy(BaseStrategy):
 if __name__ == "__main__":
     from runing_tools import run_strategy_on_server
 
-    username = "test_user" #Your username here
-    password = "" #Your password here
+    username = "oguzhan" #Your username here
+    password = "i|6:Au$}E!3w" #Your password here
     strategy_file_name = "example_ml_strategy.py"
 
     run_strategy_on_server(
