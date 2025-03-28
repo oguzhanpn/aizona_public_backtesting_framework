@@ -145,11 +145,11 @@ class BaseStrategy(ABC):
     def make_future_predictions(self, model_name, model_object, pair=None):
         self.backtest.make_future_predictions(model_name, model_object, pair)
 
-    def get_last_trade_buy_price(self):
-        return self.backtest.trade_history.last_trade_buy.price
+    def get_last_trade_buy_price(self, pair):
+        return self.backtest.trade_history.last_trade_buy[pair].price
     
-    def get_last_trade_sell_price(self):
-        return self.backtest.trade_history.last_trade_sell.price
+    def get_last_trade_sell_price(self, pair):
+        return self.backtest.trade_history.last_trade_sell[pair].price
     
     def get_open_position_price(self, pair):
         return self.backtest.trade_history.open_positions_price[pair]

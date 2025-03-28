@@ -36,7 +36,7 @@ class Strategy(BaseStrategy):
                     # put start order
                     price = self.get_bid_price(step)
                     _dict = {"pair": pair, "side": "buy", "price": price, "amount": self.params['order_amount'] / price,
-                             "step": step}
+                             "step": step, "maker":True}
                     self.create_limit_order(_dict)
                 else:
                     # wait do nothing - to be implemented..
@@ -44,15 +44,15 @@ class Strategy(BaseStrategy):
             else:
                 if self.params['side'] == "LONG":
                     # add dca order
-                    price = self.get_last_trade_buy_price() * (1 - self.params['price_deviation_to_safety_order'] / 100)
+                    price = self.get_last_trade_buy_price(pair) * (1 - self.params['price_deviation_to_safety_order'] / 100)
                     _dict = {"pair": pair, "side": "buy", "price": price, "amount": self.params['order_amount'] / price,
-                             "step": step}
+                             "step": step, "maker":True}
                     self.create_limit_order(_dict)
                 else:
                     # close pos order
                     price = self.get_open_position_price(pair) * (1 - self.params['take_profit'] / 100)
                     _dict = {"pair": pair, "side": "buy", "price": price, "amount": self.get_position(pair),
-                             "step": step}
+                             "step": step, "maker":True}
                     self.create_limit_order(_dict)
 
     def control_sell_limit_order(self, pair):
@@ -63,7 +63,7 @@ class Strategy(BaseStrategy):
                     # put start order
                     price = self.get_ask_price(step)
                     _dict = {"pair": pair, "side": "sell", "price": price,
-                             "amount": self.params['order_amount'] / price, "step": step}
+                             "amount": self.params['order_amount'] / price, "step": step, "maker":True}
                     self.create_limit_order(_dict)
                 else:
                     # wait do nothing
@@ -71,10 +71,10 @@ class Strategy(BaseStrategy):
             else:
                 if self.params['side'] == "SHORT":
                     # add dca order
-                    price = self.get_last_trade_sell_price() * (
+                    price = self.get_last_trade_sell_price(pair) * (
                                 1 + self.params['price_deviation_to_safety_order'] / 100)
                     _dict = {"pair": pair, "side": "sell", "price": price,
-                             "amount": self.params['order_amount'] / price, "step": step}
+                             "amount": self.params['order_amount'] / price, "step": step, "maker":True}
                     self.create_limit_order(_dict)
                 else:
                     # close pos order
@@ -110,10 +110,9 @@ class Strategy(BaseStrategy):
 if __name__ == "__main__":
     from runing_tools import run_strategy_on_server
 
-    username = "test_user" #Your username here
-    password = "" #Your password here
+    username = "oguzhan" #Your username here
+    password = "i|6:Au$}E!3w" #Your password here
     strategy_file_name = "dca_v0.py"
-
 
     run_strategy_on_server(
         username=username,
