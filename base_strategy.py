@@ -156,6 +156,9 @@ class BaseStrategy(ABC):
     
     def create_limit_order(self, order_dict):
         self.backtest.create_limit_order(order_dict)
+
+    def get_open_orders(self, pair):
+        return self.backtest.order_manager.get_orders(pair)
     
     def get_buy_orders(self, pair):
         return self.backtest.order_manager.get_buy_orders(pair)
