@@ -4,12 +4,13 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import sys
+import traceback
 class BaseStrategy(ABC):
     """
     Abstract base class for all trading strategies.
     All strategy implementations must inherit from this class and implement its abstract methods.
     """
-    def __init__(self, pair_list, params):
+    def __init__(self, pair_list, params, strategy_id=None):
         self.log_name = 'strategy_logger'
         Path("logs").mkdir(parents=True, exist_ok=True)
         self.log_file = 'logs/strategy_logs/' + datetime.now().strftime('%Y-%m-%d %H-%M-%S') + '_' + self.log_name + '.log'
@@ -21,7 +22,8 @@ class BaseStrategy(ABC):
         self.sim_size = None
         self.results_channel = None
         self.next_progress_log_percentage = 0.1
-
+        self.strategy_id = strategy_id
+    
     @abstractmethod
     def make_step_controls(self, pair):
         """
@@ -52,9 +54,9 @@ class BaseStrategy(ABC):
     def _close_pair_positions(self, pairs, comment='close_pos'):
         for pair in pairs:
             # First cancel open orders:
-            open_orders = self.backtest.order_manager.get_orders(pair)
+            open_orders = self.get_open_orders(pair)
             for _order in open_orders:
-                self.backtest.order_manager.cancel_open_order(_order)
+                self.cancel_open_order(_order)
 
             # Now close all positions:
             pos_amount = self.backtest.get_position(pair)
@@ -124,13 +126,16 @@ class BaseStrategy(ABC):
     def get_position(self, pair):
         return self.backtest.trade_history.positions[pair]
     
-    def get_bid_price(self, step):
+    def get_old_position(self):
+        return self.backtest.trade_history.old_pos_for_peak_control
+
+    def get_bid_price(self, step, pair=None):
         return self.backtest.price_data.get_data("bid_0_price", step)
     
-    def get_ask_price(self, step):
+    def get_ask_price(self, step, pair=None):
         return self.backtest.price_data.get_data("ask_0_price", step)
     
-    def get_mid_price(self, step):
+    def get_mid_price(self, step, pair=None):
         return (self.get_ask_price(step) + self.get_bid_price(step)) / 2
 
     def get_data(self, data_type, step):
@@ -151,11 +156,37 @@ class BaseStrategy(ABC):
     def get_last_trade_sell_price(self, pair):
         return self.backtest.trade_history.last_trade_sell[pair].price
     
+    def get_last_trade(self, pair):
+        if self.backtest.trade_history.trade_objects_list:
+            return self.backtest.trade_history.trade_objects_list[-1]
+        else:
+            return None
+
+    def get_my_trades(self, pair=None):
+        if pair is None:
+            return self.backtest.trade_history.trade_objects_list
+        else:
+            return [trade for trade in self.backtest.trade_history.trade_objects_list if trade.pair == pair]
+    
+    def get_new_trades(self):
+        last_trade = self.get_last_trade()
+        if last_trade == self.last_issued_trade:
+            return []
+
+        if self.last_issued_trade is None:
+            return self.get_my_trades()
+        else:
+            return [trade for trade in self.get_my_trades() if trade.step > self.last_issued_trade.step]
+
+
+    def get_open_position_trades(self, pair):
+        return self.backtest.trade_history.temp_trades_list[pair]
+
     def get_open_position_price(self, pair):
         return self.backtest.trade_history.open_positions_price[pair]
     
     def create_limit_order(self, order_dict):
-        self.backtest.create_limit_order(order_dict)
+        return self.backtest.create_limit_order(order_dict)
 
     def get_open_orders(self, pair):
         return self.backtest.order_manager.get_orders(pair)
@@ -171,6 +202,27 @@ class BaseStrategy(ABC):
 
     def cancel_open_orders(self, pair):
         self.backtest.order_manager.cancel_open_orders(pair)
+
+    def control_trades(self):
+        return self.backtest.control_trades()
+
+    def get_instant_pnl(self, pair):
+        return self.backtest.trade_history.instant_pnl[pair]
+
+    def get_trade_executed(self, pair):
+        return self.backtest.trade_executed[pair]
+
+    def set_trade_executed(self, pair, value):
+        self.backtest.trade_executed[pair] = value
+
+    def reset_trade_history(self):
+        self.backtest.reset_trade_history()
+
+    def update_trade_history(self, trade_infos):
+        self.backtest.update_trade_history(trade_infos)
+
+    def get_max_steps(self):
+        return self.backtest.max_steps
 
     def printer_method(self, message: str):
         requests.post(
