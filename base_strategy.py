@@ -160,7 +160,7 @@ class BaseStrategy(ABC):
         if self.backtest.trade_history.trade_objects_list:
             return self.backtest.trade_history.trade_objects_list[-1]
         else:
-            return None
+            return []
 
     def get_my_trades(self, pair=None):
         if pair is None:
