@@ -24,6 +24,7 @@ class BaseStrategy(ABC):
         self.results_channel = None
         self.next_progress_log_percentage = 0.1
         self.strategy_id = strategy_id
+        self.last_issued_trade = None
     
     @abstractmethod
     def make_step_controls(self, pair):
@@ -168,16 +169,22 @@ class BaseStrategy(ABC):
             return self.backtest.trade_history.trade_objects_list
         else:
             return [trade for trade in self.backtest.trade_history.trade_objects_list if trade.pair == pair]
-    
+        
     def get_new_trades(self):
         last_trade = self.get_last_trade(self.pair_list[0])
         if last_trade == self.last_issued_trade:
             return []
 
         if self.last_issued_trade is None:
-            return self.get_my_trades()
+            new_trades = self.get_my_trades()
         else:
-            return [trade for trade in self.get_my_trades() if trade.step > self.last_issued_trade.step]
+            new_trades = [trade for trade in self.get_my_trades() if trade.timestamp > self.last_issued_trade.timestamp]
+        if new_trades:
+            self.update_last_issued_trade(new_trades)
+        return new_trades
+    
+    def update_last_issued_trade(self, new_trades):
+        self.last_issued_trade = max(new_trades, key=lambda trade: trade.timestamp)
 
     def get_min_order_amounts(self):
         markets = ccxt.binance({
