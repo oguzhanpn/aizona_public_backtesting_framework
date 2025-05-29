@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import sys
+import ccxt
 import traceback
 class BaseStrategy(ABC):
     """
@@ -169,7 +170,7 @@ class BaseStrategy(ABC):
             return [trade for trade in self.backtest.trade_history.trade_objects_list if trade.pair == pair]
     
     def get_new_trades(self):
-        last_trade = self.get_last_trade()
+        last_trade = self.get_last_trade(self.pair_list[0])
         if last_trade == self.last_issued_trade:
             return []
 
@@ -178,6 +179,20 @@ class BaseStrategy(ABC):
         else:
             return [trade for trade in self.get_my_trades() if trade.step > self.last_issued_trade.step]
 
+    def get_min_order_amounts(self):
+        markets = ccxt.binance({
+            'options': {
+                'defaultType': 'future'
+            }
+        }).load_markets()
+        min_order_amounts ={}
+        for pair in self.pair_list:
+            symbol = pair + "/USDT:USDT"
+            # Get market info
+            market = markets[symbol]
+            # Extract minimum order amount
+            min_order_amounts[pair] = market['limits']['amount']['min']
+        return min_order_amounts
 
     def get_open_position_trades(self, pair):
         return self.backtest.trade_history.temp_trades_list[pair]
