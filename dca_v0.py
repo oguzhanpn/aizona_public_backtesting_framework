@@ -110,8 +110,8 @@ class Strategy(BaseStrategy):
 if __name__ == "__main__":
     from runing_tools import run_strategy_on_server
 
-    username = "oguzhan" #Your username here
-    password = "i|6:Au$}E!3w" #Your password here
+    username = "" #Your username here
+    password = "" #Your password here
     strategy_file_name = "dca_v0.py"
 
     run_strategy_on_server(
