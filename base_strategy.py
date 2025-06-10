@@ -116,6 +116,13 @@ class BaseStrategy(ABC):
 
             self._send_backtest_report()
 
+    def pass_step_from_strategy(self):
+        if self.get_current_step() < self.backtest.max_steps - 1:
+            self.backtest.pass_steps()
+            return True
+        else:
+            return False
+
     def get_current_step(self):
         return self.backtest.current_step
     
