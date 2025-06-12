@@ -123,6 +123,9 @@ class BaseStrategy(ABC):
         else:
             return False
 
+    def get_sleep_multiplier(self):
+        return 0
+    
     def get_current_step(self):
         return self.backtest.current_step
     
